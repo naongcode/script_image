@@ -243,7 +243,6 @@ REQUIREMENTS:
               onGenerate={() => handleGenerateCharacterImages(char)}
               onSelectImage={(imageId) => handleUpdateCharacter(char.id, { selectedImage: imageId })}
               getImageSrc={getImageSrc}
-              imageCache={imageCache}
               setImageCache={setImageCache}
             />
           ))}
@@ -278,7 +277,6 @@ function CharacterCard({
   onGenerate,
   onSelectImage,
   getImageSrc,
-  imageCache,
   setImageCache,
 }: {
   character: Character;
@@ -288,7 +286,6 @@ function CharacterCard({
   onGenerate: () => void;
   onSelectImage: (imageId: string) => void;
   getImageSrc: (id: string) => string;
-  imageCache: Record<string, string>;
   setImageCache: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { loadApiKey, saveApiKey } from '../lib/storage';
-import { initGemini } from '../lib/gemini';
 
 export default function Settings() {
   const [apiKey, setApiKey] = useState('');
@@ -20,7 +19,6 @@ export default function Settings() {
     }
 
     saveApiKey(apiKey.trim());
-    initGemini(apiKey.trim());
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
