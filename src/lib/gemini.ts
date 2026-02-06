@@ -1,22 +1,30 @@
 import { GoogleGenAI } from '@google/genai';
 import type { AnalysisResult } from '../types';
+import { loadApiKey } from './storage';
 
-// 환경변수에서 API 키 로드
-const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+// API 클라이언트 캐시
+let cachedAI: GoogleGenAI | null = null;
+let cachedKey: string | null = null;
 
-if (!API_KEY) {
-  console.error('VITE_GOOGLE_API_KEY가 설정되지 않았습니다. .env.local 파일을 확인하세요.');
+// API 키 가져오기 (환경변수 → localStorage 순서)
+function getApiKey(): string | null {
+  const envKey = import.meta.env.VITE_GOOGLE_API_KEY;
+  if (envKey) return envKey;
+  return loadApiKey();
 }
-
-// API 클라이언트 (싱글톤)
-const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
 // API 클라이언트 가져오기
 export function getAI(): GoogleGenAI {
-  if (!ai) {
-    throw new Error('Gemini API가 초기화되지 않았습니다. .env.local에 VITE_GOOGLE_API_KEY를 설정하세요.');
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error('API 키가 설정되지 않았습니다. 설정 페이지에서 Gemini API 키를 입력해주세요.');
   }
-  return ai;
+  // 키가 변경되면 클라이언트 재생성
+  if (!cachedAI || cachedKey !== apiKey) {
+    cachedAI = new GoogleGenAI({ apiKey });
+    cachedKey = apiKey;
+  }
+  return cachedAI;
 }
 
 // 화풍 스타일 옵션
