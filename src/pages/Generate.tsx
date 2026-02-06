@@ -6,7 +6,7 @@ import {
   updateScene,
 } from '../lib/storage';
 import { generateSceneImage, buildScenePrompt, IMAGE_STYLES, type ImageStyle } from '../lib/gemini';
-import { saveImage, getImage } from '../lib/imageStorage';
+import { saveImage, getImage, getCharacterImage } from '../lib/imageStorage';
 import type { Scene, Character } from '../types';
 
 interface Props {
@@ -24,13 +24,16 @@ export default function Generate({ scriptId, onUpdate }: Props) {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState('');
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
+  const [charImageCache, setCharImageCache] = useState<Record<string, string>>({});
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>('realistic');
 
   const loadData = async () => {
     const loadedScenes = getScenesByScript(scriptId);
     setScenes(loadedScenes);
-    setCharacters(getCharactersByScript(scriptId));
+    const loadedCharacters = getCharactersByScript(scriptId);
+    setCharacters(loadedCharacters);
 
+    // 장면 이미지 캐시 로드
     const cache: Record<string, string> = {};
     for (const scene of loadedScenes) {
       for (const imageId of scene.generatedImages) {
@@ -49,6 +52,22 @@ export default function Generate({ scriptId, onUpdate }: Props) {
       }
     }
     setImageCache(prev => ({ ...prev, ...cache }));
+
+    // 캐릭터 참조 이미지 캐시 로드
+    const charCache: Record<string, string> = {};
+    for (const char of loadedCharacters) {
+      for (const imageId of char.referenceImages) {
+        if (!charCache[imageId] && !imageId.startsWith('data:')) {
+          const imageData = await getCharacterImage(imageId);
+          if (imageData) {
+            charCache[imageId] = imageData;
+          }
+        } else if (imageId.startsWith('data:')) {
+          charCache[imageId] = imageId;
+        }
+      }
+    }
+    setCharImageCache(prev => ({ ...prev, ...charCache }));
   };
 
   useEffect(() => {
@@ -68,6 +87,13 @@ export default function Generate({ scriptId, onUpdate }: Props) {
     return imageCache[imageIdOrData] || '';
   };
 
+  const getCharImageSrc = (imageIdOrData: string): string => {
+    if (imageIdOrData.startsWith('data:')) {
+      return imageIdOrData;
+    }
+    return charImageCache[imageIdOrData] || '';
+  };
+
   const handleGenerateOne = async (scene: Scene, count: number = IMAGES_PER_GENERATION) => {
     setError('');
     setGenerating(scene.id);
@@ -79,11 +105,23 @@ export default function Generate({ scriptId, onUpdate }: Props) {
 
       const sceneCharacters = getSceneCharacters(scene);
 
+      // 캐릭터 참조 이미지 로드 (선택된 이미지 우선)
       const referenceImages: string[] = [];
       for (const char of sceneCharacters) {
-        for (const img of char.referenceImages) {
-          if (referenceImages.length < 8) {
-            referenceImages.push(img);
+        // 선택된 이미지가 있으면 먼저 추가
+        if (char.selectedImage && referenceImages.length < 8) {
+          const imageData = charImageCache[char.selectedImage] || (char.selectedImage.startsWith('data:') ? char.selectedImage : null);
+          if (imageData) {
+            referenceImages.push(imageData);
+          }
+        }
+        // 나머지 이미지들도 추가 (선택된 이미지 제외)
+        for (const imageId of char.referenceImages) {
+          if (imageId !== char.selectedImage && referenceImages.length < 8) {
+            const imageData = charImageCache[imageId] || (imageId.startsWith('data:') ? imageId : null);
+            if (imageData) {
+              referenceImages.push(imageData);
+            }
           }
         }
       }
@@ -242,26 +280,32 @@ export default function Generate({ scriptId, onUpdate }: Props) {
 
       {/* 캐릭터 참조 이미지 요약 */}
       <div className="bg-yellow-50 p-4 rounded-lg">
-        <h3 className="font-medium text-yellow-800 mb-2">캐릭터 참조 이미지</h3>
+        <h3 className="font-medium text-yellow-800 mb-2">캐릭터 참조 이미지 (선택된 이미지 우선 사용)</h3>
         <div className="flex flex-wrap gap-4">
-          {characters.map((char) => (
-            <div key={char.id} className="flex items-center gap-2">
-              {char.referenceImages[0] ? (
-                <img
-                  src={char.referenceImages[0]}
-                  alt={char.name}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-sm">
-                  {char.name[0]}
-                </div>
-              )}
-              <span className="text-sm text-yellow-700">
-                {char.name} ({char.referenceImages.length}/8)
-              </span>
-            </div>
-          ))}
+          {characters.map((char) => {
+            // 선택된 이미지 또는 첫 번째 이미지
+            const displayImageId = char.selectedImage || char.referenceImages[0];
+            const displayImageSrc = displayImageId ? getCharImageSrc(displayImageId) : '';
+            return (
+              <div key={char.id} className="flex items-center gap-2">
+                {displayImageSrc ? (
+                  <img
+                    src={displayImageSrc}
+                    alt={char.name}
+                    className={`w-10 h-10 rounded-full object-cover ${char.selectedImage ? 'border-2 border-blue-500' : ''}`}
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-sm">
+                    {char.name[0]}
+                  </div>
+                )}
+                <span className="text-sm text-yellow-700">
+                  {char.name} ({char.referenceImages.length}/8)
+                  {char.selectedImage && <span className="text-blue-600 ml-1">*</span>}
+                </span>
+              </div>
+            );
+          })}
         </div>
         {characters.some((c) => c.referenceImages.length === 0) && (
           <p className="text-xs text-yellow-600 mt-2">

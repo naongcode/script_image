@@ -28,7 +28,8 @@ export interface Character {
   name: string;
   appearance: Appearance;
   defaultOutfit?: string;
-  referenceImages: string[]; // Base64 이미지 데이터 (최대 8개)
+  referenceImages: string[]; // 이미지 ID 목록 (최대 8개)
+  selectedImage?: string; // 선택된 대표 이미지 ID
   basePrompt?: string;
   createdAt: string;
   updatedAt: string;
