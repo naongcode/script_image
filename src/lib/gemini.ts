@@ -27,6 +27,17 @@ export function getAI(): GoogleGenAI {
   return cachedAI;
 }
 
+// 이미지 비율 옵션
+export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
+
+export const ASPECT_RATIOS: { id: AspectRatio; name: string; description: string }[] = [
+  { id: '1:1', name: '1:1', description: '정사각형' },
+  { id: '4:3', name: '4:3', description: '가로 (표준)' },
+  { id: '16:9', name: '16:9', description: '가로 (와이드)' },
+  { id: '3:4', name: '3:4', description: '세로 (표준)' },
+  { id: '9:16', name: '9:16', description: '세로 (와이드)' },
+];
+
 // 화풍 스타일 옵션
 export type ImageStyle = 'realistic' | 'anime' | 'watercolor' | 'cinematic' | 'comic';
 
@@ -110,7 +121,8 @@ IMPORTANT RULES:
 // 이미지 생성 (Nano Banana - gemini-2.5-flash-image)
 export async function generateSceneImage(
   prompt: string,
-  referenceImages: string[] = []
+  referenceImages: string[] = [],
+  aspectRatio: AspectRatio = '16:9'
 ): Promise<string> {
   const contents: any[] = [];
 
@@ -129,6 +141,12 @@ export async function generateSceneImage(
   const response = await getAI().models.generateContent({
     model: 'gemini-2.5-flash-image',
     contents: contents,
+    config: {
+      responseModalities: ['image', 'text'],
+      imageConfig: {
+        aspectRatio: aspectRatio,
+      },
+    },
   });
 
   const candidates = response.candidates;

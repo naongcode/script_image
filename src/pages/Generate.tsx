@@ -5,7 +5,7 @@ import {
   getCharacter,
   updateScene,
 } from '../lib/storage';
-import { generateSceneImage, buildScenePrompt, IMAGE_STYLES, type ImageStyle } from '../lib/gemini';
+import { generateSceneImage, buildScenePrompt, IMAGE_STYLES, ASPECT_RATIOS, type ImageStyle, type AspectRatio } from '../lib/gemini';
 import { saveImage, getImage, getCharacterImage } from '../lib/imageStorage';
 import type { Scene, Character } from '../types';
 
@@ -26,6 +26,7 @@ export default function Generate({ scriptId, onUpdate }: Props) {
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [charImageCache, setCharImageCache] = useState<Record<string, string>>({});
   const [selectedStyle, setSelectedStyle] = useState<ImageStyle>('realistic');
+  const [selectedRatio, setSelectedRatio] = useState<AspectRatio>('16:9');
 
   const loadData = async () => {
     const loadedScenes = getScenesByScript(scriptId);
@@ -148,7 +149,7 @@ export default function Generate({ scriptId, onUpdate }: Props) {
         setGeneratingProgress({ current: i + 1, total: count });
 
         try {
-          const imageData = await generateSceneImage(prompt, referenceImages);
+          const imageData = await generateSceneImage(prompt, referenceImages, selectedRatio);
           const imageId = await saveImage(scene.id, scene.generatedImages.length + i, imageData);
 
           setImageCache(prev => ({ ...prev, [imageId]: imageData }));
@@ -273,6 +274,28 @@ export default function Generate({ scriptId, onUpdate }: Props) {
             >
               <div className="font-medium text-gray-800">{style.name}</div>
               <div className="text-xs text-gray-500 mt-1 line-clamp-2">{style.description}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 비율 선택 */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-medium text-gray-800 mb-3">이미지 비율</h3>
+        <div className="grid grid-cols-5 gap-3">
+          {ASPECT_RATIOS.map((ratio) => (
+            <button
+              key={ratio.id}
+              onClick={() => setSelectedRatio(ratio.id)}
+              disabled={generating !== null}
+              className={`p-3 rounded-lg border-2 transition text-center ${
+                selectedRatio === ratio.id
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              } ${generating !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <div className="font-medium text-gray-800">{ratio.name}</div>
+              <div className="text-xs text-gray-500 mt-1">{ratio.description}</div>
             </button>
           ))}
         </div>
@@ -432,10 +455,10 @@ function SceneGenerateCard({
                   <img
                     src={imageSrc}
                     alt={`장면 ${scene.sceneNumber} - ${index + 1}`}
-                    className="w-full aspect-square object-cover"
+                    className="w-full object-contain"
                   />
                 ) : (
-                  <div className="w-full aspect-square bg-gray-100 flex items-center justify-center">
+                  <div className="w-full aspect-video bg-gray-100 flex items-center justify-center">
                     <span className="text-gray-400">로딩 중...</span>
                   </div>
                 )}
